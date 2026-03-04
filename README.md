@@ -64,5 +64,3 @@ jupyter notebook notebooks/metacognition_analysis.ipynb
 - Qwen 2.5: [HuggingFace](https://huggingface.co/Qwen)
 
 ---
-
-*MS Data Science research project, Indiana University, Bloomington.*
