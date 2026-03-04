@@ -1,66 +1,136 @@
 # Metacognition in Large Language Models
 
-A replication and extension of "Neurofeedback-Driven Metacognition in Language Models" — evaluating how LLMs report and control their own internal representations across 5 NLP classification tasks.
+A replication and extension of **"Neurofeedback-Driven Metacognition in Language Models"** — evaluating whether LLMs can accurately report and control their own internal representations across 5 NLP classification tasks using Qwen 2.5.
+
+---
 
 ## Overview
 
-Can LLMs accurately report on their own internal states? This project investigates **metacognitive reporting and control** in Qwen 2.5 language models — studying whether models can explicitly describe what they implicitly know, and whether prompting can improve that alignment.
+Can a language model accurately report what it internally "knows"? And can it be prompted to control its own hidden state activations?
 
-## Research Question
+This project investigates **metacognitive reporting and control** in Qwen 2.5 (1.5B and 7B). We extend the original paper — which studied a single dataset — to **5 NLP tasks** spanning sentiment, toxicity, morality, and question answering.
 
-Do LLMs have meaningful semantic axes in their hidden states for tasks like sentiment, toxicity, and morality — and can they be prompted to leverage these axes for more reliable classification?
+---
+
+## Research Questions
+
+1. **Reporting:** Does the model's self-reported score (via prompting) align with its internal hidden state projection on the classification axis?
+2. **Control:** Can the model produce text that shifts its own hidden state toward a target label when explicitly or implicitly instructed?
+
+---
 
 ## Datasets
 
 | Dataset | Task | Domain |
 |---------|------|--------|
 | SST-2 | Sentiment Analysis | Movie reviews |
-| IMDB | Sentiment Analysis | Movie reviews |
+| IMDB | Sentiment Analysis | Long-form reviews |
 | TweetEval-Offensive | Toxicity Detection | Twitter |
-| ETHICS | Morality Classification | Ethics scenarios |
+| ETHICS (Commonsense) | Morality Classification | Ethics scenarios |
 | BoolQ | Yes/No QA | Wikipedia passages |
+
+---
 
 ## Methodology
 
-1. **Linear Probing** — trained logistic regression classifiers on hidden states of Qwen 2.5 (1.5B and 7B) to measure implicit knowledge
-2. **Prompt Engineering** — designed explicit prompts to elicit model self-reports on classification confidence
-3. **Explicit vs Implicit Control** — measured alignment between prompted outputs and hidden state predictions
-4. **Effect Size** — used Cohen's d to quantify separation between class representations in hidden state space
+### 1. Linear Probing (Axis Training)
+- Extract **mean-pooled hidden states** from a target layer of Qwen 2.5
+- Train a **logistic regression classifier** on hidden states to find the classification axis
+- Normalize axis to unit norm; compute projection threshold θ via median
 
-## Key Finding
+### 2. Reporting Evaluation
+- Build **flat in-context prompts** with N neurofeedback demo examples
+- Read model's self-reported label from **logits at the `[Score:{` token** (no generation)
+- Compare reported label to internal label derived from **prompt-position hidden state**
+- Sweep N = {0, 2, 4, 8, 16, 32, 64} demos; measure accuracy and cross-entropy
 
-**BoolQ fails** — the model shows near-zero effect size on BoolQ, indicating no meaningful semantic axis exists for yes/no QA in the hidden states. This is a genuine AI reliability boundary: metacognitive prompting cannot improve performance when the underlying representation is absent.
+### 3. Control Evaluation
+- **Explicit control:** Generate text under instruction to "imitate label {0 or 1}"; embed last token; measure Z-scored projection distribution
+- **Implicit control:** Fix a base sentence per dataset; vary demo labels; measure hidden state shift without explicit label instruction
+- **Cohen's d** computed as effect size for label-0 vs label-1 projection distributions
+- 2×2 counterbalanced design across conditions
 
-Sentiment and toxicity tasks show strong hidden state separation (high Cohen's d), making them amenable to metacognitive control. Morality tasks show intermediate results.
+---
+
+## Key Findings
+
+| Dataset | Explicit Cohen's d | Implicit Cohen's d | Notable |
+|---------|-------------------|-------------------|---------|
+| SST-2 | High | High | Strong semantic axis |
+| IMDB | High | High | Strong semantic axis |
+| TweetEval-Offensive | Moderate | Moderate | Toxicity axis present |
+| ETHICS | Moderate | Moderate | Morality axis learnable |
+| **BoolQ** | **~0** | **~0** | **No semantic axis exists** |
+
+**Key Finding — BoolQ Failure:** BoolQ shows near-zero Cohen's d for both explicit and implicit control. The model has no meaningful semantic axis for yes/no QA in its hidden states — making metacognitive prompting ineffective. This is a genuine AI reliability boundary: when the underlying representation is absent, no amount of prompting can induce control.
+
+---
+
+## Screenshots
+
+### Explicit Control Histogram — SST-2
+<!-- INSERT: histogram showing separation between label-0 and label-1 Z-scored projections for SST-2 explicit control -->
+
+### Implicit Control Histogram — SST-2
+<!-- INSERT: histogram showing implicit control distribution for SST-2 -->
+
+### Explicit Control Histogram — BoolQ (Failure Case)
+<!-- INSERT: histogram showing near-zero separation for BoolQ explicit control — the key finding -->
+
+### Reporting Accuracy Curve
+<!-- INSERT: line plot of reporting accuracy vs N in-context examples across datasets -->
+
+---
 
 ## Models
 
-- Qwen 2.5 1.5B
-- Qwen 2.5 7B
+| Model | Parameters | Use |
+|-------|-----------|-----|
+| Qwen/Qwen2.5-7B-Instruct | 7B | Primary experiments |
+| Qwen/Qwen2.5-1.5B | 1.5B | Smaller scale comparison |
+
+---
 
 ## Tech Stack
 
 - Python, PyTorch, HuggingFace Transformers
-- Scikit-learn for linear probing
-- NumPy, Pandas, Matplotlib
-- Jupyter Notebooks
+- Scikit-learn (LogisticRegression for linear probing)
+- NumPy, Matplotlib
+- Datasets: `glue`, `imdb`, `tweet_eval`, `hendrycks/ethics`, `super_glue`
+
+---
 
 ## How to Run
 
 ```bash
 pip install -r requirements.txt
-jupyter notebook notebooks/metacognition_analysis.ipynb
+# For ETHICS + BoolQ experiments:
+jupyter notebook ethics_boolq.ipynb
+
+# For full 5-dataset pipeline:
+jupyter notebook meta3.ipynb
 ```
 
-## Files
+**Note:** Requires GPU (CUDA) for Qwen 2.5 7B. Runs on CPU for 1.5B but slowly.
 
-- `notebooks/` — full analysis pipeline
-- `data/` — dataset loading scripts
-- `requirements.txt` — dependencies
+---
+
+## Config (key parameters)
+
+```python
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+TARGET_LAYER = -1          # last hidden layer
+TRAIN_PC = 128             # per-class training examples
+EXAMPLE_COUNTS = [0,2,4,8,16,32,64]  # reporting sweep
+K_DEMOS = 8                # demos for control
+CONTROL_M_PER_COND = 10    # samples per condition
+```
+
+---
 
 ## References
 
-- Original paper: "Neurofeedback-Driven Metacognition in Language Models"
+- Original paper: *Neurofeedback-Driven Metacognition in Language Models*
 - Qwen 2.5: [HuggingFace](https://huggingface.co/Qwen)
+- ETHICS dataset: [Hendrycks et al.](https://github.com/hendrycks/ethics)
 
----
