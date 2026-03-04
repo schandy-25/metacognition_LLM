@@ -69,16 +69,16 @@ This project investigates **metacognitive reporting and control** in Qwen 2.5 (1
 ## Screenshots
 
 ### Explicit Control Histogram — SST-2
-<img src="assests/ss2_explicit.png" style="border: 2px solid black"/>
+<img src="Assests/ss2_explicit.png" style="border: 2px solid black"/>
 
 ### Implicit Control Histogram — SST-2
-<img src="assests/ss2.png" style="border: 2px solid black"/>
+<img src="Assests/ss2.png" style="border: 2px solid black"/>
 
 ### Explicit Control Histogram — BoolQ (Failure Case)
-<img src="assests/boolq.png" style="border: 2px solid black"/>
+<img src="Assests/boolq.png" style="border: 2px solid black"/>
 
 ### Reporting Accuracy Curve
-<img src="assests/accuracy.png" style="border: 2px solid black"/>
+<img src="Assests/accuracy.png" style="border: 2px solid black"/>
 ---
 
 ## Models
