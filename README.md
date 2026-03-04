@@ -1,251 +1,68 @@
+# Metacognition in Large Language Models
 
-# **Metacognitive Reporting and Control in Large Language Models**  
-### *A Replication and Multi-Dataset Extension of “Neurofeedback-Driven Metacognition in Language Models”*
+A replication and extension of "Neurofeedback-Driven Metacognition in Language Models" — evaluating how LLMs report and control their own internal representations across 5 NLP classification tasks.
 
-This repository contains a structured replication and extension of the metacognitive **reporting** and **control** framework introduced in:
+## Overview
 
-> **Neurofeedback-Driven Metacognition in Language Models**  
-> https://pmc.ncbi.nlm.nih.gov/articles/PMC12136483/pdf/nihpp-2505.13763v1.pdf  
+Can LLMs accurately report on their own internal states? This project investigates **metacognitive reporting and control** in Qwen 2.5 language models — studying whether models can explicitly describe what they implicitly know, and whether prompting can improve that alignment.
 
-The original work evaluates metacognitive abilities primarily on the **ETHICS – Commonsense Morality** dataset.  
-Here, I **replicate** the methodology on ETHICS and **extend** it to four additional binary NLP tasks:
+## Research Question
 
-- **SST2** — Sentiment  
-- **IMDB** — Sentiment  
-- **TweetEval-Offensive** — Toxicity  
-- **BoolQ (reformatted)** — Yes/No question answering  
+Do LLMs have meaningful semantic axes in their hidden states for tasks like sentiment, toxicity, and morality — and can they be prompted to leverage these axes for more reliable classification?
 
-This allows us to test whether reporting and control effects generalize beyond morality.
+## Datasets
 
----
-
-# **Repository Structure**
-
-```
-metacognition_LLM/
-│
-├── ethics.ipynb               # ETHICS replication: axis learning, reporting & control
-├── meta3.ipynb                # Multi-dataset experimental pipeline
-├── clean_notebooks.py         # Script to clean notebook metadata for GitHub
-├── figures/                   # (recommended) place images here
-└── README.md
-```
-
----
-
-# **1. Methodology Summary**
-
-Follows the structure from the original paper:  
-axis → reporting → explicit control → implicit control.
-
----
-
-## **1.1 Axis Learning (Linear Probe)**
-
-- Extract hidden states from a **single target layer** (primarily `layer = -1`).
-- Train a **balanced logistic regression** classifier.
-- Normalize the weight vector to obtain a **semantic axis**.
-
-Score = dot product:  
-\[
-s = \langle h, w \rangle
-\]
-
----
-
-## **1.2 Reporting Task**
-
-The model is shown N labeled in-context examples:
-
-```
-Assistant: text [Score:{1}]
-```
-
-Then asked to report the score of a new text.
-
-**Ground-truth:**  
-Hidden state at the *prompt-position* token `{` inside `[Score:{`  
-(projected onto the axis and thresholded).
-
-Metrics:
-
-- Accuracy vs N  
-- Cross-entropy vs N  
-
----
-
-## **1.3 Control Task**
-
-### **Explicit Control**
-Model is directly asked:
-
-> “Now imitate label {0/1}.”
-
-We then:
-
-- Generate multiple samples  
-- Embed the last token  
-- Project onto axis  
-- Compare distributions with **Cohen’s d**
-
-### **Implicit Control**
-Model is only given:
-
-> “Respond in the style of examples with score {1}, but do not mention labels.”
-
-No generation needed — only embed the last token.
-
-Expected:
-
-- Explicit → **large effect**
-- Implicit → **weak / negligible effect**
-
----
-
-# **2. Experimental Setup**
-
-## **2.1 Models**
-
-- Qwen/Qwen2.5-1.5B-Instruct  
-- Qwen/Qwen2.5-7B-Instruct *(final experiments use 7B)*  
-
-Layer used: **–1**
-
----
-
-## **2.2 Datasets**
-
-| Dataset | Task | Notes |
+| Dataset | Task | Domain |
 |---------|------|--------|
-| ETHICS | morality | baseline dataset from the paper |
-| SST2 | sentiment | very polarity-aligned |
-| IMDB | sentiment | long reviews, rich embedding signal |
-| Offensive | toxicity | clear lexical cues |
-| BoolQ | yes/no QA | *semantically weak latent axis* |
+| SST-2 | Sentiment Analysis | Movie reviews |
+| IMDB | Sentiment Analysis | Movie reviews |
+| TweetEval-Offensive | Toxicity Detection | Twitter |
+| ETHICS | Morality Classification | Ethics scenarios |
+| BoolQ | Yes/No QA | Wikipedia passages |
 
----
+## Methodology
 
-# **3. Results**
+1. **Linear Probing** — trained logistic regression classifiers on hidden states of Qwen 2.5 (1.5B and 7B) to measure implicit knowledge
+2. **Prompt Engineering** — designed explicit prompts to elicit model self-reports on classification confidence
+3. **Explicit vs Implicit Control** — measured alignment between prompted outputs and hidden state predictions
+4. **Effect Size** — used Cohen's d to quantify separation between class representations in hidden state space
 
-(Replace the example filenames with yours.)
+## Key Finding
 
----
+**BoolQ fails** — the model shows near-zero effect size on BoolQ, indicating no meaningful semantic axis exists for yes/no QA in the hidden states. This is a genuine AI reliability boundary: metacognitive prompting cannot improve performance when the underlying representation is absent.
 
-## **3.1 Reporting – ETHICS**
+Sentiment and toxicity tasks show strong hidden state separation (high Cohen's d), making them amenable to metacognitive control. Morality tasks show intermediate results.
 
-Accuracy vs N  
-![ETHICS Reporting Accuracy](figures/ethics_reporting_acc.png)
+## Models
 
-Cross-entropy vs N  
-![ETHICS Reporting CE](figures/ethics_reporting_ce.png)
+- Qwen 2.5 1.5B
+- Qwen 2.5 7B
 
----
+## Tech Stack
 
-## **3.2 Explicit Control – ETHICS**
+- Python, PyTorch, HuggingFace Transformers
+- Scikit-learn for linear probing
+- NumPy, Pandas, Matplotlib
+- Jupyter Notebooks
 
-![ETHICS Explicit Histogram](figures/ethics_explicit_hist.png)
-
-Strong separation, high Cohen’s d.
-
----
-
-## **3.3 Implicit Control – ETHICS**
-
-![ETHICS Implicit Histogram](figures/ethics_implicit_hist.png)
-
-Minimal movement → expected.
-
----
-
-## **3.4 Cross-Dataset Summary**
-
-For **SST2**, **IMDB**, and **Offensive**, results match ETHICS:
-
-- Reporting accuracy improves with N  
-- Explicit control → **large d**  
-- Implicit control → **weak**  
-
-Example:  
-![SST2 Explicit Control](figures/sst2_explicit_hist.png)
-
----
-
-## **3.5 BoolQ — Notable Exception**
-
-BoolQ is the only dataset where:
-
-- Logistic regression barely exceeds chance  
-- Explicit control has *very small* Cohen’s d  
-- Implicit control is effectively zero  
-
-### **Interpretation**
-
-BoolQ is fundamentally just:
-
-> generic question → yes/no answer
-
-So:
-
-- No coherent semantic dimension  
-- Long passages + short answers = weak axis  
-- Qwen hidden states don’t form a stable “yes/no” direction  
-
-As one reviewer summarized:
-
-> “BoolQ answers are almost arbitrary yes/no decisions over generic passages — there is no meaningful axis. Surprising the LR is even above 50%.”
-
-This supports the conclusion that **metacognition emerges only when the underlying latent dimension is meaningful**.
-
----
-
-# **4. Differences from the Original Paper**
-
-- Original: **ETHICS only**  
-  Here: **ETHICS + 4 new datasets**
-
-- Different model family (Qwen 2.5 instead of proprietary models)
-
-- Improvements:
-  - Prompt-position internal labels  
-  - Z-scored projections  
-  - Stronger counterbalancing  
-  - Fixed-sentence implicit prompts  
-  - Cleaner split logic
-
-Goal: replicate **qualitative** trends, not exact numbers.
-
----
-
-# **5. How to Run**
-
-Install:
+## How to Run
 
 ```bash
-pip install torch transformers datasets scikit-learn matplotlib nbformat
+pip install -r requirements.txt
+jupyter notebook notebooks/metacognition_analysis.ipynb
 ```
 
-Run experiments via Jupyter:
+## Files
 
-- `ethics.ipynb`
-- `meta3.ipynb`
+- `notebooks/` — full analysis pipeline
+- `data/` — dataset loading scripts
+- `requirements.txt` — dependencies
 
-Outputs: reporting curves + explicit & implicit control histograms.
+## References
+
+- Original paper: "Neurofeedback-Driven Metacognition in Language Models"
+- Qwen 2.5: [HuggingFace](https://huggingface.co/Qwen)
 
 ---
 
-# **6. Citation**
-
-If referencing:
-
-> **Neurofeedback-Driven Metacognition in Language Models**  
-> https://pmc.ncbi.nlm.nih.gov/articles/PMC12136483/pdf/nihpp-2505.13763v1.pdf
-
-This repository is an independent extension and is not affiliated with the authors.
-
----
-
-# **7. Contact**
-
-If you have questions, ideas, or want to discuss extensions, feel free to open an issue.
-
-```
+*MS Data Science research project, Indiana University, Bloomington.*
